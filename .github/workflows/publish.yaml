@@ -13,7 +13,7 @@ jobs:
           java-version: '11'
           distribution: 'adopt'
       - name: Validate Gradle wrapper
-        uses: gradle/wrapper-validation-action@bc3340afc5e3cc44f2321809ac090d731c13c514
+        uses: gradle/wrapper-validation-action@v1
       - name: Publish package
         uses: gradle/gradle-build-action@bc3340afc5e3cc44f2321809ac090d731c13c514
         with:
