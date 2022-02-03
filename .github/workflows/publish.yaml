@@ -20,5 +20,4 @@ jobs:
           arguments: publish
           build-root-directory: swagger-grails4
         env:
-          USERNAME: ${{ github.actor }}
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
