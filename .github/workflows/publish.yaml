@@ -18,5 +18,6 @@ jobs:
         uses: gradle/gradle-build-action@v2
         with:
           arguments: publish
+          build-root-directory: swagger-grails4
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
