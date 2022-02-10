@@ -3,14 +3,12 @@ package swagger.grails4
 import grails.core.GrailsApplication
 import grails.testing.mixin.integration.Integration
 import grails.testing.spring.AutowiredTest
-import grails.web.mapping.UrlMappingsHolder
 import io.swagger.v3.oas.integration.GenericOpenApiContext
 import io.swagger.v3.oas.integration.SwaggerConfiguration
 import io.swagger.v3.oas.integration.api.OpenAPIConfiguration
 import io.swagger.v3.oas.integration.api.OpenApiContext
 import io.swagger.v3.oas.models.OpenAPI
 import io.swagger.v3.oas.models.info.Info
-import org.springframework.beans.factory.annotation.Autowired
 import spock.lang.Specification
 import swagger.grails4.openapi.GrailsScanner
 import swagger.grails4.openapi.Reader
