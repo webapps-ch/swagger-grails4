@@ -27,8 +27,8 @@ class OpenApiController {
     })
     def document() {
         def doc = [:]
-        if (Environment.current != Environment.PRODUCTION){
-            doc = openApiService.generateDocument()
+        if (Environment.current != Environment.PRODUCTION || params.get('ns')){
+            doc = openApiService.generateDocument(params.get('ns'))
         }
         def json = Json.pretty().writeValueAsString(doc)
         render(text: json, contentType: "application/json", encoding: "UTF-8")
@@ -38,6 +38,10 @@ class OpenApiController {
      * Render Swagger UI
      */
     def index() {
-        render view: '/openApi/index'
+        Map<String, String> documentParams = [:]
+        if (params.get('ns')) {
+            documentParams.put('ns', params.get('ns'))
+        }
+        render(view: '/openApi/index', model: [documentParams: documentParams])
     }
 }

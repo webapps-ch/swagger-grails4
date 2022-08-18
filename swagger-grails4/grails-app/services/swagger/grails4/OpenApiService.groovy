@@ -26,11 +26,11 @@ class OpenApiService {
     /**
      * 生成 OpenAPI 文档对象
      */
-    def generateDocument() {
+    def generateDocument(String namespace = null) {
         OpenAPIConfiguration config = new SwaggerConfiguration().openAPI(configOpenApi())
         config.setReaderClass("swagger.grails4.openapi.Reader")
         OpenApiContext ctx = new GenericOpenApiContext().openApiConfiguration(config)
-        ctx.setOpenApiScanner(new GrailsScanner(grailsApplication: grailsApplication))
+        ctx.setOpenApiScanner(new GrailsScanner(grailsApplication: grailsApplication, namespace: namespace))
         ctx.setOpenApiReader(new Reader(application: grailsApplication, config: config))
         ctx.init()
         ctx.read()

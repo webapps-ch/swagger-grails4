@@ -264,7 +264,7 @@ class Reader implements OpenApiReader {
             Class fieldType = metaProperty.type
             Field field = null
             if (metaProperty instanceof MetaBeanProperty) {
-                field = metaProperty.field?.field
+                field = metaProperty.getField()?.getCachedField()
             }
             // skip grails/groovy fields
             switch (fieldName) {
@@ -541,7 +541,7 @@ class Reader implements OpenApiReader {
 
     private UrlMapping getUrlMappingOfAction(UrlMappingsHolder urlMappingsHolder, controllerArtifact, String actionName) {
         def urlMappingOfAction = urlMappingsHolder.urlMappings.find {
-            it.controllerName == controllerArtifact.logicalPropertyName && it.actionName == actionName
+            it.controllerName == controllerArtifact.logicalPropertyName && it.actionName == actionName && controllerArtifact.namespace == it.namespace
         }
         return urlMappingOfAction
     }
