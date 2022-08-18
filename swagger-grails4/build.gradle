@@ -11,7 +11,7 @@ plugins {
     id 'maven-publish'
 }
 
-version "2.0.0"
+version "2.1.0"
 group "swagger.grails4"
 
 apply plugin:"eclipse"
@@ -86,6 +86,7 @@ tasks.withType(GroovyCompile) {
 bootJar.enabled = false
 publishing {
     repositories {
+        mavenLocal()
         maven {
             url "https://maven.pkg.github.com/webapps-ch/swagger-grails4"
             name "GitHubPackages"
@@ -101,3 +102,9 @@ publishing {
         }
     }
 }
+
+java {
+    withSourcesJar()
+}
+
+

@@ -541,7 +541,7 @@ class Reader implements OpenApiReader {
 
     private UrlMapping getUrlMappingOfAction(UrlMappingsHolder urlMappingsHolder, controllerArtifact, String actionName) {
         def urlMappingOfAction = urlMappingsHolder.urlMappings.find {
-            it.controllerName == controllerArtifact.logicalPropertyName && it.actionName == actionName
+            it.controllerName == controllerArtifact.logicalPropertyName && it.actionName == actionName && controllerArtifact.namespace == it.namespace
         }
         return urlMappingOfAction
     }

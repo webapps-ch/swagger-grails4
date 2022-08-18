@@ -6,7 +6,7 @@
 :sectnums:
 :sectnumlevels: 6
 
-Grails4 Plugin to automatically generate swagger/OpenAPI-v3 REST API documents.
+Grails4+ Plugin to automatically generate swagger/OpenAPI-v3 REST API documents.
 
 link:README_zh.adoc[Chinese README]
 
@@ -86,6 +86,8 @@ Now start your REST api grails application and visit "http://<host:port>/api",
 you can see swagger-ui document.
 
 Visit "http://<host:port>/api/doc", you can get json object of document.
+
+If you have any controller namespaces defined, use "http://<host:port>/api/<namespace>" and "http://<host:port>/api/doc/<namespace>" to get corresponding documentation.
 
 ==== More controls
 
@@ -248,8 +250,8 @@ def index() {
 - Hide api doc in production environment.
 - Automatically generate response object document.
 - 'properties' of response Schema can be customized
+- Provides separate documentation for different controller namespaces (https://docs.grails.org/latest/ref/Controllers/namespace.html)
 - TODO: Can handle inherited trait properties and plain class properties.
-- TODO: recognize GORM association properties.
 
 If you need some more features please **feel free to submit an issue with 'enhancement' label**, any suggestions are welcome.
 

@@ -14,6 +14,7 @@ import io.swagger.v3.oas.integration.api.OpenApiScanner
 class GrailsScanner implements OpenApiScanner{
     GrailsApplication grailsApplication
     OpenAPIConfiguration openApiConfiguration
+    String namespace
 
     @Override
     void setConfiguration(OpenAPIConfiguration openApiConfiguration) {
@@ -24,7 +25,11 @@ class GrailsScanner implements OpenApiScanner{
     Set<Class<?>> classes() {
         def classes = []
         for (GrailsControllerClass cls in grailsApplication.controllerClasses) {
-            classes << cls.clazz
+            Boolean isDefaultNamespace = !namespace && null == cls.getNamespace()
+            Boolean isCustomNamespace = namespace && namespace == cls.getNamespace()
+            if (isDefaultNamespace || isCustomNamespace) {
+                classes << cls.clazz
+            }
         }
         return classes
     }
