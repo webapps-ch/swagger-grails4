@@ -1,6 +1,7 @@
 package swagger.grails4.openapi.builder
 
 import io.swagger.v3.oas.models.Operation
+import io.swagger.v3.oas.models.tags.Tag
 
 /**
  * Operation model builder.
@@ -35,6 +36,17 @@ class OperationBuilder implements AnnotationBuilder<Operation> {
         parameterClosures.each { closure ->
             ParameterBuilder builder = new ParameterBuilder(reader: reader)
             model.parameters << evaluateClosure(closure, builder)
+        }
+    }
+
+    def tags(List<Closure> tagClosures) {
+        if (!model.tags) {
+            model.tags = []
+        }
+        tagClosures.each { closure ->
+            TagBuilder builder = new TagBuilder(reader: reader)
+            Tag t = evaluateClosure(closure, builder)
+            model.tags << t.name
         }
     }
 

@@ -124,7 +124,9 @@ class Reader implements OpenApiReader {
             operationBuilder.model.requestBody = buildActionCommandParameters(actionName, controllerArtifact, urlMappingsHolder)
             // process operation closure that can override parameters information
             def operation = processClosure(closureClass, operationBuilder) as Operation
-            operation.addTagsItem(controllerTag.name)
+            if (!operation.tags) {
+                operation.addTagsItem(controllerTag.name)
+            }
             buildPathItem(operation, actionName, controllerArtifact, urlMappingsHolder)
         }
     }
