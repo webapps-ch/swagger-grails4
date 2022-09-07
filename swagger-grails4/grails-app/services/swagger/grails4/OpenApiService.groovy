@@ -27,7 +27,7 @@ class OpenApiService {
      * 生成 OpenAPI 文档对象
      */
     def generateDocument(String namespace = null) {
-        OpenAPIConfiguration config = new SwaggerConfiguration().openAPI(configOpenApi())
+        OpenAPIConfiguration config = new SwaggerConfiguration().openAPI(configOpenApi(namespace))
         config.setReaderClass("swagger.grails4.openapi.Reader")
         OpenApiContext ctx = new GenericOpenApiContext().openApiConfiguration(config)
         ctx.setOpenApiScanner(new GrailsScanner(grailsApplication: grailsApplication, namespace: namespace))
@@ -40,8 +40,9 @@ class OpenApiService {
      * Create an OpenAPI object with configured ahead.
      * @return OpenAPI object has been configured.
      */
-    OpenAPI configOpenApi() {
-        // TODO resolve config from groovy script or annotation
-        new OpenAPI().info(new Info().description("TEST INFO DESC"))
+    OpenAPI configOpenApi(String namespace = null) {
+        def config = grailsApplication.config.navigate('openApi', 'doc', namespace ?: 'default', 'info')
+        Info info = new Info().title(config.title ?: null).description(config.description ?: null).version(config.version ?: null)
+        new OpenAPI().info(info)
     }
 }

@@ -35,6 +35,13 @@ management:
     endpoints:
         enabled-by-default: false
 
+openApi:
+    doc:
+        default:
+            info:
+                title: "Custom API"
+                version: '1.0'
+
 ---
 grails:
     mime:

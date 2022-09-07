@@ -33,6 +33,30 @@ dependencies {
 }
 ----
 
+==== Add Info configuration
+
+Configure at least default namespace in application.(groovy/yml). For each namespace configure additional information.
+
+[source,groovy]
+----
+openApi {
+    doc {
+        'default' {
+            info {
+                title = "Primary API"
+                version = '1.0'
+            }
+        }
+        otherNamespace {
+            info {
+                title = "Secondary API"
+                version = '1.1'
+            }
+        }
+    }
+}
+----
+
 ==== Add @ApiDoc annotations
 
 Add @ApiDoc annotations to Controller and Command/Domain classes any Schema classes you want plugin

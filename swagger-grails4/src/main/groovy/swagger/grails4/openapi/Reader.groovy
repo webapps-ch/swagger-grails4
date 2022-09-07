@@ -68,6 +68,8 @@ class Reader implements OpenApiReader {
     @Override
     @CompileStatic
     OpenAPI read(Set<Class<?>> classes, Map<String, Object> resources) {
+        openAPI.setInfo(config.openAPI.getInfo())
+
         classes.each {
             processApiDocAnnotation(it)
         }
