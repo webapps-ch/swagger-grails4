@@ -90,4 +90,38 @@ class UserController {
     })
     def showUser(String id) {
     }
+
+    @ApiDoc(operation = {
+        summary "Upload image"
+        description "Upload avatar image"
+        parameters([{
+            name "id"
+            description "User id"
+            inType "path"
+            schema { type "string" }
+        }])
+        requestBody({
+            description "The image to upload"
+            required true
+            content "application/octet-stream": {
+                schema {
+                    name "FileSchema"
+                    type "file"
+                    description "The file byte stream"
+                }
+            }
+        })
+        responses "200": {
+            content "default": {
+                description "success response"
+                schema {
+                    name "CustomSchema"
+                    type "string"
+                    description "The customized json response"
+                }
+            }
+        }
+    })
+    def uploadAvatar(String id) {
+    }
 }

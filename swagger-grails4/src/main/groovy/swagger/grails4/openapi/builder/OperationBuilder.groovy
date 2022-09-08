@@ -1,6 +1,7 @@
 package swagger.grails4.openapi.builder
 
 import io.swagger.v3.oas.models.Operation
+import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.tags.Tag
 
 /**
@@ -47,6 +48,19 @@ class OperationBuilder implements AnnotationBuilder<Operation> {
             TagBuilder builder = new TagBuilder(reader: reader)
             Tag t = evaluateClosure(closure, builder)
             model.tags << t.name
+        }
+    }
+
+    def requestBody(Closure requestBodyClosure) {
+        if (!requestBodyClosure) {
+            return
+        }
+
+        if (!model.requestBody) {
+            RequestBody body = evaluateClosure(requestBodyClosure, new RequestBodyBuilder(reader: reader))
+            if (body) {
+                model.requestBody = body
+            }
         }
     }
 
