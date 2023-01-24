@@ -1,3 +1,5 @@
+package swagger.grails4.util
+
 /**
  * Helper class to compare Swagger definitions against each other
  */
@@ -15,7 +17,7 @@ class SwaggerComparator {
      * @param keyName, must be empty '' for root node
      * @return the deviations including the key names
      */
-    public static Map<String, String> evaluateDiff(val1, val2, String keyName) {
+    static Map<String, String> evaluateDiff(val1, val2, String keyName) {
         Map err = [:]
         if (val1.class != val2.class) {
             err.put("${keyName}", "Has different class: ${val1.class} vs ${val2.class}")
