@@ -2,7 +2,6 @@ package swagger.grails4
 
 import grails.core.GrailsApplication
 import grails.web.mapping.LinkGenerator
-import grails.web.mapping.UrlMappingsHolder
 import io.swagger.v3.oas.integration.GenericOpenApiContext
 import io.swagger.v3.oas.integration.SwaggerConfiguration
 import io.swagger.v3.oas.integration.api.OpenAPIConfiguration
@@ -31,7 +30,7 @@ class OpenApiService {
         config.setReaderClass("swagger.grails4.openapi.Reader")
         OpenApiContext ctx = new GenericOpenApiContext().openApiConfiguration(config)
         ctx.setOpenApiScanner(new GrailsScanner(grailsApplication: grailsApplication, namespace: namespace))
-        ctx.setOpenApiReader(new Reader(application: grailsApplication, config: config))
+        ctx.setOpenApiReader(new Reader(application: grailsApplication, config: config, namespace: namespace))
         ctx.init()
         ctx.read()
     }

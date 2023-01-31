@@ -2,6 +2,7 @@ package swagger.grails4.openapi.builder
 
 import io.swagger.v3.oas.models.Operation
 import io.swagger.v3.oas.models.parameters.RequestBody
+import io.swagger.v3.oas.models.security.SecurityRequirement
 import io.swagger.v3.oas.models.tags.Tag
 
 /**
@@ -48,6 +49,18 @@ class OperationBuilder implements AnnotationBuilder<Operation> {
             TagBuilder builder = new TagBuilder(reader: reader)
             Tag t = evaluateClosure(closure, builder)
             model.tags << t.name
+        }
+    }
+
+    def security(Map<String, List<String>> securityMap) {
+        if (!model.security) {
+            model.security = []
+        }
+
+        securityMap.each { name, entries ->
+            def secReq = new SecurityRequirement()
+            secReq.addList(name, entries)
+            model.security << secReq
         }
     }
 

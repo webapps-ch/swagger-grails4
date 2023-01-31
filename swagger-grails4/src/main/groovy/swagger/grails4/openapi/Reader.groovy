@@ -22,6 +22,7 @@ import io.swagger.v3.oas.models.media.Content
 import io.swagger.v3.oas.models.media.MediaType
 import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.RequestBody
+import io.swagger.v3.oas.models.security.SecurityScheme
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.oas.models.tags.Tag
 import org.grails.web.mapping.RegexUrlMapping
@@ -49,6 +50,7 @@ class Reader implements OpenApiReader {
 
     OpenAPIConfiguration config
     GrailsApplication application
+    String namespace
 
     private OpenAPI openAPI = new OpenAPI()
 
@@ -75,6 +77,8 @@ class Reader implements OpenApiReader {
         }
         // sort controller by tag name
         openAPI.tags = openAPI.tags?.sort { it.name }
+
+        processGlobalSecuritySchemes()
 
         // append server information
         String url = application.config.grails.getAt("serverURL")
@@ -532,6 +536,14 @@ class Reader implements OpenApiReader {
         openAPI.components.schemas.find {
             it.key == schemaName
         }?.value
+    }
+
+    void processGlobalSecuritySchemes() {
+        def security = application.config.navigate('openApi', 'doc', namespace ?: 'default', 'securitySchemes')
+        security?.each { name, map ->
+            def secScheme = new SecurityScheme(map)
+            openAPI.getComponents()?.addSecuritySchemes(name, secScheme)
+        }
     }
 
     /**

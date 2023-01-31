@@ -52,6 +52,15 @@ openApi {
                 title = "Secondary API"
                 version = '1.1'
             }
+            securitySchemes {
+                Authorization {
+                    type = 'HTTP'
+                    name = 'Authorization'
+                    scheme = 'bearer'
+                    bearerFormat = 'JWT'
+                }
+                Authorization.'in' = 'HEADER'
+            }
         }
     }
 }
@@ -79,6 +88,7 @@ class UserController {
 @ApiDoc(operation = {
     summary "Create User"
     description "Create a new user"
+    security("Authorization": [])
     responses "200": {
         content "default": {
             description "success response"
