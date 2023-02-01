@@ -100,6 +100,7 @@ class UserController {
             inType "path"
             schema { type "string" }
         }])
+        security("Authorization":[])
         requestBody({
             description "The image to upload"
             required true

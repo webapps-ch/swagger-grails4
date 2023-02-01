@@ -41,6 +41,17 @@ openApi:
             info:
                 title: "Custom API"
                 version: '1.0'
+            servers:
+                - url: 'http://localhost:8080'
+                  description: 'my main server'
+            security:
+                Authorization: []
+            components:
+                securitySchemes:
+                    Authorization:
+                        type: "HTTP"
+                        scheme: "bearer"
+                        bearerFormat: "JWT"
 
 ---
 grails:
