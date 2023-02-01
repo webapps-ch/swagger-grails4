@@ -51,7 +51,7 @@ class OpenApiService {
 
         //Set server if configured
         def serverConfig = grailsApplication.config.navigate('openApi', 'doc', namespace ?: 'default', 'servers')
-        if (config) {
+        if (serverConfig) {
             List<Server> servers = serverConfig.collect { serverMap -> new Server().url(serverMap?.url ?: null).description(serverMap?.description ?: null)}
             openAPI.servers(servers)
         }
