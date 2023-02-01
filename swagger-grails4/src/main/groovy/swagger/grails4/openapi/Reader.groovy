@@ -68,15 +68,20 @@ class Reader implements OpenApiReader {
     @Override
     @CompileStatic
     OpenAPI read(Set<Class<?>> classes, Map<String, Object> resources) {
+        openAPI.setInfo(config.openAPI.getInfo())
+        openAPI.setServers(config.openAPI.getServers())
+        openAPI.setSecurity(config.openAPI.getSecurity())
+        openAPI.setComponents(config.openAPI.getComponents())
+
         classes.each {
             processApiDocAnnotation(it)
         }
         // sort controller by tag name
         openAPI.tags = openAPI.tags?.sort { it.name }
 
-        // append server information
+        // append server information if not yet configured by application configuration
         String url = application.config.grails.getAt("serverURL")
-        if (url) {
+        if (url && !openAPI.getServers()) {
             openAPI.servers([new Server(url: url)])
         }
         openAPI
@@ -124,7 +129,9 @@ class Reader implements OpenApiReader {
             operationBuilder.model.requestBody = buildActionCommandParameters(actionName, controllerArtifact, urlMappingsHolder)
             // process operation closure that can override parameters information
             def operation = processClosure(closureClass, operationBuilder) as Operation
-            operation.addTagsItem(controllerTag.name)
+            if (!operation.tags) {
+                operation.addTagsItem(controllerTag.name)
+            }
             buildPathItem(operation, actionName, controllerArtifact, urlMappingsHolder)
         }
     }

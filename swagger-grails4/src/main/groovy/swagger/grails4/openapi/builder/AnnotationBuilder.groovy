@@ -63,7 +63,10 @@ trait AnnotationBuilder<T> {
                 // assign to model directly
                 // must use getModel() instead of 'this.model' because we need implementing class overridden property
                 if (getModel().hasProperty(propertyName)) {
-                    getModel()[propertyName] = method.defaultValue
+                    //Only assign default value if the element is not nullable
+                    if (!isPrimitiveNotNullableElement(elementType)) {
+                        getModel()[propertyName] = method.defaultValue
+                    }
                     // add to primitive
                     primitiveElements << propertyName
                 }
@@ -79,6 +82,14 @@ trait AnnotationBuilder<T> {
             case Number[]:
             case Boolean:
             case Boolean[]:
+                return true
+        }
+        return isPrimitiveNotNullableElement(elementType)
+    }
+
+    def isPrimitiveNotNullableElement(elementType) {
+        switch (elementType) {
+            case boolean:
                 return true
         }
         return false

@@ -31,7 +31,7 @@ class GrailsScanner implements OpenApiScanner{
                 classes << cls.clazz
             }
         }
-        return classes
+        return classes.sort{it.name}
     }
 
     @Override
