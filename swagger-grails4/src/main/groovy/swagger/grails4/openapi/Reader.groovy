@@ -160,7 +160,9 @@ class Reader implements OpenApiReader {
             //Try to replace asterisk placeholders of path parameters
             if (urlMappingOfAction instanceof RegexUrlMapping) {
                 urlMappingOfAction.constraints.each { def constrainedProperty ->
-                    //Replace optional placeholder first
+                    //Replace named wildcard with double * first
+                    url = url.replaceFirst("\\(\\*\\*\\)", "\\(\\*\\)")
+                    //Then replace optional placeholder
                     url = url.replaceFirst("\\(\\(\\*\\)\\)\\?", "\\(\\*\\)")
                     //Then replace variables
                     url = url.replaceFirst("\\(\\*\\)", '{' + ((ConstrainedProperty) constrainedProperty).propertyName + '}')
