@@ -19,8 +19,9 @@ jobs:
       - name: Validate Gradle wrapper
         uses: gradle/wrapper-validation-action@v1
       - name: Publish package
-        uses: gradle/gradle-build-action@bc3340afc5e3cc44f2321809ac090d731c13c514
+        uses: gradle/gradle-build-action@v2
         with:
+          gradle-version: 7.4.2
           arguments: publish
           build-root-directory: swagger-grails4
         env:
