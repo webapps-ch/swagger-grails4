@@ -1,5 +1,7 @@
 buildscript {
     repositories {
+        mavenLocal()
+        mavenCentral()
         maven { url "https://repo.grails.org/grails/core" }
     }
     dependencies {
@@ -8,16 +10,16 @@ buildscript {
 }
 
 plugins {
-    id 'maven-publish'
+    id "maven-publish"
 }
 
-version "2.2.1"
+version "2.2.2"
 group "swagger.grails4"
 
-apply plugin:"eclipse"
-apply plugin:"idea"
-apply plugin:"org.grails.grails-plugin"
-apply plugin:"org.grails.grails-gsp"
+apply plugin: "eclipse"
+apply plugin: "idea"
+apply plugin: "org.grails.grails-plugin"
+apply plugin: "org.grails.grails-gsp"
 
 repositories {
     maven { url "https://repo.grails.org/grails/core" }
@@ -30,15 +32,13 @@ configurations {
     }
 }
 
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
-[compileJava, compileTestJava, compileGroovy, compileTestGroovy]*.options*.encoding = 'UTF-8'
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+
+[compileJava, compileTestJava, compileGroovy, compileTestGroovy]*.options*.encoding = "UTF-8"
 
 dependencies {
-    // swagger
-    implementation "io.swagger.core.v3:swagger-integration:2.1.13"
-
-    developmentOnly("org.springframework.boot:spring-boot-devtools")
+    developmentOnly "org.springframework.boot:spring-boot-devtools"
     implementation  "org.springframework.boot:spring-boot-starter-logging"
     implementation  "org.springframework.boot:spring-boot-autoconfigure"
     implementation  "org.grails:grails-core"
@@ -47,38 +47,38 @@ dependencies {
     implementation  "org.grails:grails-web-boot"
     implementation  "org.grails:grails-logging"
     implementation  "org.grails:grails-plugin-rest"
-    implementation  "org.grails:grails-plugin-databinding"
     implementation  "org.grails:grails-plugin-i18n"
     implementation  "org.grails:grails-plugin-services"
     implementation  "org.grails:grails-plugin-url-mappings"
-    implementation  "org.grails:grails-plugin-interceptors"
-    implementation  "org.grails.plugins:cache"
-    implementation  "org.grails.plugins:async"
-    implementation  "org.grails.plugins:scaffolding"
     implementation  "org.grails.plugins:gsp"
+
     compileOnly "io.micronaut:micronaut-inject-groovy"
     console "org.grails:grails-console"
     profile "org.grails.profiles:web-plugin"
-    testCompile "org.grails:grails-gorm-testing-support"
-    testCompile "org.mockito:mockito-core"
-    testCompile "org.grails:grails-web-testing-support"
+
+    // swagger
+    implementation "io.swagger.core.v3:swagger-integration:$swaggerCoreVersion"
+
+    testCompileOnly "org.grails:grails-gorm-testing-support"
+    testCompileOnly "org.mockito:mockito-core"
+    testCompileOnly "org.grails:grails-web-testing-support"
 }
 
 bootRun {
     ignoreExitValue true
     jvmArgs(
-        '-Dspring.output.ansi.enabled=always',
-        '-noverify',
-        '-XX:TieredStopAtLevel=1',
-        '-Xmx1024m')
+        "-Dspring.output.ansi.enabled=always",
+        "-noverify",
+        "-XX:TieredStopAtLevel=1",
+        "-Xmx1024m")
     sourceResources sourceSets.main
-    String springProfilesActive = 'spring.profiles.active'
+    String springProfilesActive = "spring.profiles.active"
     systemProperty springProfilesActive, System.getProperty(springProfilesActive)
 }
 
-tasks.withType(GroovyCompile) {
+tasks.withType(GroovyCompile).configureEach {
     configure(groovyOptions) {
-        forkOptions.jvmArgs = ['-Xmx1024m']
+        forkOptions.jvmArgs = ["-Xmx1024m"]
     }
 }
 
@@ -93,6 +93,17 @@ publishing {
             credentials {
                 username = System.getenv("GITHUB_ACTOR")
                 password = System.getenv("GITHUB_TOKEN")
+            }
+        }
+        maven {
+            url "https://gitlab.sontex.ch/api/v4/projects/26/packages/maven"
+            name "SontexNavenPublish"
+            credentials(HttpHeaderCredentials) {
+                name = System.getenv("GITLAB_HEADER")
+                value = System.getenv("GITLAB_TOKEN")
+            }
+            authentication {
+                header(HttpHeaderAuthentication)
             }
         }
     }

@@ -4,19 +4,19 @@ buildscript {
     }
     dependencies {
         classpath "org.grails:grails-gradle-plugin:$grailsGradlePluginVersion"
-        classpath "org.grails.plugins:hibernate5:7.1.0"
+        classpath "org.grails.plugins:hibernate5:$hibernatePluginVersion"
         classpath "org.grails.plugins:views-gradle:2.2.0"
     }
 }
 
-version "0.1"
+version "1.0.0"
 group "swagger.grails4.sample"
 
-apply plugin:"eclipse"
-apply plugin:"idea"
-apply plugin:"war"
-apply plugin:"org.grails.grails-web"
-apply plugin:"org.grails.plugins.views-json"
+apply plugin: "eclipse"
+apply plugin: "idea"
+apply plugin: "war"
+apply plugin: "org.grails.grails-web"
+apply plugin: "org.grails.plugins.views-json"
 
 repositories {
     maven { url "https://repo.grails.org/grails/core" }
@@ -29,22 +29,15 @@ configurations {
     }
 }
 
-// 设定子项目的java文件字符编码
-sourceCompatibility = '1.8'
-targetCompatibility = '1.8'
-[compileJava, compileTestJava, compileGroovy, compileTestGroovy]*.options*.encoding = 'UTF-8'
+sourceCompatibility = "1.8"
+targetCompatibility = "1.8"
+[compileJava, compileTestJava, compileGroovy, compileTestGroovy]*.options*.encoding = "UTF-8"
 
 grails {
-    plugins {
-        // 对swagger插件的依赖
-        compile project(":swagger-grails4")
-    }
-    // 解决命令行过程问题
     pathingJar = true
 }
 
 dependencies {
-    implementation "io.swagger.core.v3:swagger-integration:2.1.13"
     developmentOnly "org.springframework.boot:spring-boot-devtools"
     implementation "org.springframework.boot:spring-boot-starter-logging"
     implementation  "org.springframework.boot:spring-boot-autoconfigure"
@@ -54,46 +47,50 @@ dependencies {
     implementation  "org.grails:grails-plugin-url-mappings"
     implementation  "org.grails:grails-plugin-rest"
     implementation  "org.grails:grails-plugin-codecs"
-    implementation  "org.grails:grails-plugin-interceptors"
-    implementation  "org.grails:grails-plugin-services"
     implementation  "org.grails:grails-plugin-datasource"
     implementation  "org.grails:grails-plugin-databinding"
     implementation  "org.grails:grails-web-boot"
     implementation  "org.grails:grails-logging"
     implementation  "org.grails.plugins:cache"
-    implementation  "org.grails.plugins:async"
-    implementation  "org.grails.plugins:events"
     implementation  "org.grails.plugins:hibernate5"
-    implementation  "org.hibernate:hibernate-core:5.5.7.Final"
+    implementation "org.hibernate:hibernate-core:$hibernateCoreVersion"
     implementation  "org.grails.plugins:views-json"
     implementation  "org.grails.plugins:views-json-templates"
     compileOnly "io.micronaut:micronaut-inject-groovy"
+
+    // swagger
+    implementation "io.swagger.core.v3:swagger-integration:$swaggerCoreVersion"
+    implementation project(":swagger-grails4")
+
     console "org.grails:grails-console"
     profile "org.grails.profiles:rest-api"
+
+
     runtimeOnly "org.glassfish.web:el-impl:2.2.1-b05"
     runtimeOnly "com.h2database:h2"
     runtimeOnly "org.apache.tomcat:tomcat-jdbc"
     runtimeOnly "javax.xml.bind:jaxb-api:2.3.1"
-    testCompile "org.grails:grails-gorm-testing-support"
-    testCompile "org.mockito:mockito-core"
-    testCompile "io.micronaut:micronaut-http-client"
-    testCompile "org.grails:grails-web-testing-support"
+
+    testCompileOnly "org.grails:grails-gorm-testing-support"
+    testCompileOnly "org.mockito:mockito-core"
+    testCompileOnly "io.micronaut:micronaut-http-client"
+    testCompileOnly "org.grails:grails-web-testing-support"
 }
 
 bootRun {
     ignoreExitValue true
     jvmArgs(
-        '-Dspring.output.ansi.enabled=always',
-        '-noverify',
-        '-XX:TieredStopAtLevel=1',
-        '-Xmx1024m')
+        "-Dspring.output.ansi.enabled=always",
+        "-noverify",
+        "-XX:TieredStopAtLevel=1",
+        "-Xmx1024m")
     sourceResources sourceSets.main
-    String springProfilesActive = 'spring.profiles.active'
+    String springProfilesActive = "spring.profiles.active"
     systemProperty springProfilesActive, System.getProperty(springProfilesActive)
 }
 
-tasks.withType(GroovyCompile) {
+tasks.withType(GroovyCompile).configureEach {
     configure(groovyOptions) {
-        forkOptions.jvmArgs = ['-Xmx1024m']
+        forkOptions.jvmArgs = ["-Xmx1024m"]
     }
 }
