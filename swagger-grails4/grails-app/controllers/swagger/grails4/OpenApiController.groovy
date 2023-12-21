@@ -9,12 +9,9 @@ import swagger.grails4.openapi.ApiDoc
  *
  * @author bo.yang <bo.yang@telecwin.com>
  */
-@ApiDoc(tag = {
-    description "The OpenAPI v3 api document controller"
-})
 class OpenApiController {
 
-    OpenApiService openApiService
+    def openApiService
 
     @ApiDoc(operation = {
         summary "OpenApi json documents"
@@ -27,21 +24,19 @@ class OpenApiController {
     })
     def document() {
         def doc = [:]
-        if (Environment.current != Environment.PRODUCTION || params.get('ns')){
-            doc = openApiService.generateDocument(params.get('ns'))
+        if (Environment.current != Environment.PRODUCTION){
+            doc = openApiService.generateDocument("v3")
         }
         def json = Json.pretty().writeValueAsString(doc)
+
+        File file = new File("api-doc.json")
+        file.write(json, "UTF-8")
+
         render(text: json, contentType: "application/json", encoding: "UTF-8")
     }
 
-    /**
-     * Render Swagger UI
-     */
+
     def index() {
-        Map<String, String> documentParams = [:]
-        if (params.get('ns')) {
-            documentParams.put('ns', params.get('ns'))
-        }
-        render(view: '/openApi/index', model: [documentParams: documentParams])
+        render view: '/openApi/index'
     }
 }

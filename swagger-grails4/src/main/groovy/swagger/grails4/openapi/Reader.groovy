@@ -1,15 +1,19 @@
 package swagger.grails4.openapi
 
-import grails.artefact.DomainClass
-import grails.core.GrailsApplication
-import grails.core.GrailsControllerClass
-import grails.gorm.validation.ConstrainedProperty
-import grails.validation.Validateable
+import io.swagger.v3.oas.models.parameters.Parameter
+import main.swagger.grails4.openapi.ApiDocExampleValue
+import main.swagger.grails4.openapi.ApiDocGenericValue
+import main.swagger.grails4.openapi.builder.ApiDocExampleValueBuilder
+import main.swagger.grails4.openapi.builder.ApiDocGenericValueBuilder
+
+// import grails.artefact.DomainClass
+import org.codehaus.groovy.grails.commons.GrailsApplication
+import org.codehaus.groovy.grails.commons.GrailsControllerClass
+import org.codehaus.groovy.grails.validation.ConstrainedProperty
 import grails.web.Action
-import grails.web.mapping.UrlCreator
-import grails.web.mapping.UrlMapping
-import grails.web.mapping.UrlMappingsHolder
-import groovy.transform.CompileStatic
+import org.codehaus.groovy.grails.web.mapping.UrlCreator
+import org.codehaus.groovy.grails.web.mapping.UrlMapping
+import org.codehaus.groovy.grails.web.mapping.UrlMappingsHolder
 import groovy.util.logging.Slf4j
 import io.swagger.v3.oas.integration.api.OpenAPIConfiguration
 import io.swagger.v3.oas.integration.api.OpenApiReader
@@ -24,7 +28,9 @@ import io.swagger.v3.oas.models.media.Schema
 import io.swagger.v3.oas.models.parameters.RequestBody
 import io.swagger.v3.oas.models.servers.Server
 import io.swagger.v3.oas.models.tags.Tag
-import org.grails.web.mapping.RegexUrlMapping
+import org.codehaus.groovy.grails.web.mapping.RegexUrlMapping
+import swagger.grails4.UrlMappings
+import swagger.grails4.openapi.ApiDoc
 import swagger.grails4.openapi.builder.AnnotationBuilder
 import swagger.grails4.openapi.builder.OperationBuilder
 import swagger.grails4.openapi.builder.TagBuilder
@@ -34,39 +40,25 @@ import java.lang.reflect.Method
 import java.lang.reflect.Modifier
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
-import java.util.regex.Matcher
 
-/**
- * Groovy annotation reader for OpenAPI
- *
- * @author bo.yang <bo.yang@telecwin.com>
- */
 @Slf4j
 class Reader implements OpenApiReader {
 
-    final static String DEFAULT_MIME = "*/*"
     final static String JSON_MIME = "application/json"
+    final static String MULTIPART_FORM_DATA_MIME = "multipart/form-data"
+
 
     OpenAPIConfiguration config
     GrailsApplication application
 
     private OpenAPI openAPI = new OpenAPI()
 
-    @CompileStatic
     @Override
     void setConfiguration(OpenAPIConfiguration openApiConfiguration) {
         this.config = openApiConfiguration
     }
 
-    /**
-     * Read controller classes, build OpenAPI object.
-     *
-     * @param classes controller classes or any classes with @ApiDoc annotation
-     * @param resources TODO Understanding what it is
-     * @return openAPI object
-     */
     @Override
-    @CompileStatic
     OpenAPI read(Set<Class<?>> classes, Map<String, Object> resources) {
         openAPI.setInfo(config.openAPI.getInfo())
         openAPI.setServers(config.openAPI.getServers())
@@ -80,14 +72,14 @@ class Reader implements OpenApiReader {
         openAPI.tags = openAPI.tags?.sort { it.name }
 
         // append server information if not yet configured by application configuration
-        String url = application.config.grails.getAt("serverURL")
+        String url = application.config.grails.serverURL
         if (url && !openAPI.getServers()) {
             openAPI.servers([new Server(url: url)])
         }
-        openAPI
+
+        return openAPI
     }
 
-    @CompileStatic
     def processApiDocAnnotation(Class controllerClass) {
         log.debug("Scanning class: ${controllerClass.simpleName}")
         // get all controller grails artifacts
@@ -98,64 +90,67 @@ class Reader implements OpenApiReader {
             log.error("No grails controller found for class ${controllerClass}")
             return
         }
+
+        if (controllerArtifact.clazz.getAnnotation(ApiDoc) == null) {
+            return
+        }
+
         def applicationContext = application.mainContext
         def urlMappingsHolder = applicationContext.getBean("grailsUrlMappingsHolder", UrlMappingsHolder)
-        urlMappingsHolder.urlMappings.each {
-            log.debug("url mapping: ${it}")
-        }
+
         if (!openAPI.paths) {
             openAPI.paths(new Paths())
         }
-        // Add global tags
-        Tag controllerTag = buildControllerDoc(controllerArtifact)
 
-        // iterate actions only
-        controllerArtifact.actions.each { String actionName ->
-            log.debug("Scanning action: ${actionName}")
-            // get java reflection method object
+        Tag controllerTag = buildControllerTag(controllerArtifact)
+
+        controllerArtifact.viewNames.each {
+            String actionName = it.key
+
             Method method = controllerClass.methods.find { it.name == actionName }
             if (!method) {
-                log.error("No method found for action '${actionName}'!")
                 return
             }
-            def apiDoc = method.getAnnotation(ApiDoc)
-            if (!apiDoc) {
+
+            def annotation = method.getAnnotation(ApiDoc)
+            if (!annotation) {
                 return
             }
-            // process operation closure
-            def closureClass = apiDoc.operation()
-            def operationBuilder = new OperationBuilder(reader: this)
-            // resolve grails action command parameters
-            operationBuilder.model.requestBody = buildActionCommandParameters(actionName, controllerArtifact, urlMappingsHolder)
-            // process operation closure that can override parameters information
-            def operation = processClosure(closureClass, operationBuilder) as Operation
+
+            Class closureClass = annotation.operation()
+            OperationBuilder operationBuilder = new OperationBuilder(reader: this)
+
+            operationBuilder.model.requestBody = buildRequestBody(actionName, controllerArtifact, urlMappingsHolder)
+            operationBuilder.model.responses = buildResponses(annotation)
+
+            Operation operation = processClosure(closureClass, operationBuilder) as Operation
+
+            if (!operation.parameters) {
+                operation.parameters = buildQueryParameters(actionName, controllerArtifact, urlMappingsHolder)
+            }
+
             if (!operation.tags) {
                 operation.addTagsItem(controllerTag.name)
             }
+
+            if (!operation.description) {
+                operation.description = annotation.description()
+            }
+
+            if (!operation.summary) {
+                operation.summary = annotation.summary()
+            }
+
             buildPathItem(operation, actionName, controllerArtifact, urlMappingsHolder)
         }
     }
 
-    @CompileStatic
-    def buildPathItem(Operation operation, String actionName, GrailsControllerClass controllerArtifact, UrlMappingsHolder urlMappingsHolder) {
-        // Resolve http method, url from:
-        // 1. UrlMapping rule
-        // 2. Controller allowedMethods map
-        // 3. default as GET
-
-        // 1. from UrlMapping
+    private void buildPathItem(Operation operation, String actionName, GrailsControllerClass controllerArtifact, UrlMappingsHolder urlMappingsHolder) {
         UrlMapping urlMappingOfAction = getUrlMappingOfAction(urlMappingsHolder, controllerArtifact, actionName)
         PathItem.HttpMethod httpMethod = PathItem.HttpMethod.GET
         String url
         if (urlMappingOfAction) {
-            String httpMethodName = urlMappingOfAction.httpMethod.toUpperCase()
-            // http method of grails url-mapping rule is '*' or not in PathItem.HttpMethod enum
-            // then we use GET method
-            if (httpMethodName == "*" || !PathItem.HttpMethod.values()
-                    .collect { it.name() }.contains(httpMethodName)) {
-                httpMethodName = "GET"
-            }
-            httpMethod = PathItem.HttpMethod.valueOf(httpMethodName)
+            httpMethod = buildHttpMethod(urlMappingOfAction, actionName)
             url = urlMappingOfAction.urlData.urlPattern
             //Try to replace asterisk placeholders of path parameters
             if (urlMappingOfAction instanceof RegexUrlMapping) {
@@ -165,172 +160,323 @@ class Reader implements OpenApiReader {
                     //Then replace optional placeholder
                     url = url.replaceFirst("\\(\\(\\*\\)\\)\\?", "\\(\\*\\)")
                     //Then replace variables
-                    url = url.replaceFirst("\\(\\*\\)", '{' + ((ConstrainedProperty) constrainedProperty).propertyName + '}')
+
+                    if (constrainedProperty.propertyName == "namespace") {
+                        url = url.replaceFirst("\\(\\*\\)", urlMappingOfAction.namespace)
+                    } else {
+                        url = url.replaceFirst("\\(\\*\\)", '{' + ((ConstrainedProperty) constrainedProperty).propertyName + '}')
+                    }
                 }
             }
         } else {
-            // 2. from controller
             def allowedMethods = controllerArtifact.getPropertyValue("allowedMethods")
             if (allowedMethods && allowedMethods[actionName]) {
                 httpMethod = PathItem.HttpMethod.valueOf(allowedMethods[actionName] as String)
             }
             def controllerName = controllerArtifact.logicalPropertyName
-            UrlCreator urlCreator = urlMappingsHolder.getReverseMapping(controllerName, actionName,
-                    controllerArtifact.pluginName, [:])
+            UrlCreator urlCreator = urlMappingsHolder.getReverseMapping(controllerName, actionName, null, [:])
             url = urlCreator.createURL([controller: controllerName, action: actionName], "utf-8")
         }
-        //Re-use existing path item, otherwise the new PathItem will override existing ones
+
         def pathItem = openAPI.paths[url] ?: new PathItem()
         pathItem.operation(httpMethod, operation)
         openAPI.paths.addPathItem(url, pathItem)
     }
 
-    @CompileStatic
-    Tag buildControllerDoc(GrailsControllerClass grailsControllerClass) {
-        def tag = new Tag()
+    private Tag buildControllerTag(GrailsControllerClass grailsControllerClass) {
+        Tag tag = new Tag()
         tag.name = grailsControllerClass.logicalPropertyName.capitalize()
-        if (!grailsControllerClass.actions) {
+
+        if (!grailsControllerClass.viewNames) {
             return tag
         }
-        ApiDoc apiDocAnnotation = grailsControllerClass.clazz.getAnnotation(ApiDoc) as ApiDoc
-        if (!apiDocAnnotation) {
+
+        ApiDoc annotation = grailsControllerClass.clazz.getAnnotation(ApiDoc) as ApiDoc
+        if (!annotation) {
             return tag
         }
-        def tagClosure = apiDocAnnotation.tag()
+
+        def tagClosure = annotation.tag()
         if (tagClosure) {
             def tagFromClosure = processClosure(tagClosure, new TagBuilder(reader: this)) as Tag
-            // copy default name
+
             if (!tagFromClosure.name) {
                 tagFromClosure.name = tag.name
             }
             tag = tagFromClosure
         }
+
         openAPI.addTagsItem(tag)
-        tag
+        return tag
     }
 
-    def processClosure(Class closureClass, AnnotationBuilder builder) {
-        //def builder = builderClass.newInstance(openAPI: openAPI)
+    private def processClosure(Class closureClass, AnnotationBuilder builder) {
         if (closureClass) {
-            // call the constructor of Closure(Object owner, Object thisObject)
             Closure closure = closureClass.newInstance(openAPI, openAPI) as Closure
             closure.delegate = builder
             closure.resolveStrategy = Closure.DELEGATE_FIRST
-            closure()
+            def result = closure()
+
+            if (result instanceof Closure) {
+                result.delegate = builder
+                result.resolveStrategy = Closure.DELEGATE_FIRST
+                result = result()
+            }
         }
-        builder.model
+
+        return builder.model
     }
 
-    /**
-     * Grails controller original action has an annotation "Action" with member "commandObjects" store
-     * action commands classes, we will build parameter schemas on these command class.
-     * @param actionName name of the action to build
-     * @param grailsControllerClass action belonged grails controller class
-     */
-    @CompileStatic
-    RequestBody buildActionCommandParameters(String actionName, GrailsControllerClass grailsControllerClass, UrlMappingsHolder urlMappingsHolder) {
+    private Map buildResponses(ApiDoc annotation) {
+        Class responseType = annotation.responseType()
+
+        Boolean isClosureResponseType = responseType.simpleName.contains("closure")
+
+        if (isClosureResponseType) return null
+
+        Map responses = [:]
+
+        responses["200"] = new io.swagger.v3.oas.models.responses.ApiResponse(
+                description: "OK",
+                content: new Content(
+                        "${JSON_MIME}": new MediaType(schema: buildSchema(responseType))
+                )
+        )
+
+        ApiDocExampleValue exampleValue = processClosure(annotation.examples(), new ApiDocExampleValueBuilder(reader: this))
+        if (!exampleValue.responses) return responses
+
+        for (String key : exampleValue.responses.keySet()) {
+            def responseExamples = exampleValue.responses[key]
+
+            String jsonMimeType = responses[key].content.keySet().first()
+
+            if (responseExamples instanceof List) {
+                int count = 0
+
+                responses[key].content[jsonMimeType].examples = [:]
+
+                for (def responseExample : responseExamples) {
+                    count++
+                    responses[key].content[jsonMimeType].examples."${count}" = responseExample
+                }
+            } else {
+                responses[key].content[jsonMimeType].example = exampleValue.responses[key]
+            }
+        }
+
+        return responses
+    }
+
+    private RequestBody buildRequestBody(String actionName, GrailsControllerClass grailsControllerClass, UrlMappingsHolder urlMappingsHolder) {
         Class plainClass = grailsControllerClass.clazz
         def actionMethods = plainClass.methods.find { it.name == actionName && it.getAnnotation(Action) }
         def actionAnnotation = actionMethods.getAnnotation(Action)
         def commandClasses = actionAnnotation.commandObjects()
         if (commandClasses) {
-            // Create schema in components
             def commandClass = commandClasses[0]
-            if (!isCommandClass(commandClass)) {
-                return null
-            }
 
-            // If it is a GET request, do not add command class as request body
             UrlMapping urlActionMapping = getUrlMappingOfAction(urlMappingsHolder, grailsControllerClass, actionName)
-            if (urlActionMapping && urlActionMapping.httpMethod == 'GET') {
-                return null
+            PathItem.HttpMethod httpMethod = buildHttpMethod(urlActionMapping, actionName)
+
+            if (httpMethod == PathItem.HttpMethod.GET) return null
+
+            Boolean containsInPathProperties = listInPathProperties(commandClass).size() > 0
+
+            Schema schema
+            if (!containsInPathProperties) {
+                schema = buildSchema(commandClass)
+                String ref = getRef(schema)
+                schema = new Schema($ref: ref)
+            } else {
+                schema = buildSchema(commandClass, null, true)
             }
 
-            Schema schema = buildSchema(commandClass)
-            def ref = getRef(schema)
+            Boolean containsFileProperty = listClassProperties(commandClass).any({
+                ApiDoc annotation = it.field?.field.getAnnotation(ApiDoc)
+
+                return annotation && annotation.isFile()
+            })
+
+            String mime
+            if (containsFileProperty) {
+                mime = MULTIPART_FORM_DATA_MIME
+            } else {
+                mime = JSON_MIME
+            }
+
             Content content = new Content()
-            content.addMediaType(JSON_MIME, new MediaType(schema: new Schema($ref: ref)))
-            content.addMediaType(DEFAULT_MIME, new MediaType(schema: new Schema($ref: ref)))
+            content.addMediaType(mime, new MediaType(schema: schema))
+
+            ApiDoc annotation = actionMethods.getAnnotation(ApiDoc)
+            if (annotation) {
+                ApiDocExampleValue exampleValue = processClosure(annotation.examples(), new ApiDocExampleValueBuilder(reader: this))
+
+                if (exampleValue.request) {
+                    String jsonMimeType = content.keySet().first()
+
+                    content[jsonMimeType].example = exampleValue.request
+                }
+            }
+
             return new RequestBody(content: content)
         } else {
             return null
         }
     }
 
-    @CompileStatic
-    static String getRef(Schema schema) {
-        "#/components/schemas/${schema.name}"
+    private List<Parameter> buildQueryParameters(String actionName, GrailsControllerClass grailsControllerClass, UrlMappingsHolder urlMappingsHolder) {
+        Class plainClass = grailsControllerClass.clazz
+        def actionMethods = plainClass.methods.find { it.name == actionName && it.getAnnotation(Action) }
+        def actionAnnotation = actionMethods.getAnnotation(Action)
+        def commandClasses = actionAnnotation.commandObjects()
+        if (commandClasses) {
+            UrlMapping urlActionMapping = getUrlMappingOfAction(urlMappingsHolder, grailsControllerClass, actionName)
+
+            def commandClass = commandClasses[0]
+            List<Parameter> parameters = []
+
+            if (commandClass == String && urlActionMapping?.constraints) {
+                for (def constraint : urlActionMapping.constraints) {
+                    String paramName = constraint.propertyName
+
+                    if (paramName == "namespace") {
+                        continue
+                    }
+
+                    parameters.add(new Parameter(
+                        name: paramName,
+                        in: "path",
+                        required: true,
+                        schema: new Schema(type: "string")
+                    ))
+                }
+            } else {
+                Map<String, Schema> properties = buildClassProperties(commandClass, null)
+
+                PathItem.HttpMethod httpMethod = buildHttpMethod(urlActionMapping, actionName)
+
+                if (httpMethod == PathItem.HttpMethod.POST) {
+                    List<MetaProperty> inPathProperties = listInPathProperties(commandClass)
+
+                    properties = properties.findAll { inPathProperties.any({metaProperty -> metaProperty.name == it.key }) }
+                }
+
+                for (String key : properties.keySet()) {
+                    Schema schema = properties[key]
+
+                    String zin = httpMethod == PathItem.HttpMethod.GET ? "query" : "path"
+
+                    parameters.add(new Parameter(
+                            name: key,
+                            in: zin,
+                            example: schema.example,
+                            description: schema.description,
+                            required: schema.required,
+                            schema: new Schema(type: schema.type,
+                                    maximum: schema.maximum,
+                                    minimum: schema.minimum,
+                                    maxLength: schema.maxLength,
+                                    minLength: schema.minLength
+                            )
+                    ))
+                }
+            }
+
+            return parameters
+        } else {
+            return null
+        }
     }
 
-    @CompileStatic
-    Map<String, Schema> buildClassProperties(Class<?> aClass) {
+    private static String getRef(Schema schema) {
+        return "#/components/schemas/${schema.name}"
+    }
+
+    private Map<String, Schema> buildClassProperties(Class<?> aClass, Schema parentSchema, Boolean ignoreInPathProperties = false) {
         SortedMap<String, Schema> propertiesMap = new TreeMap<>()
-        aClass.metaClass.properties.each { MetaProperty metaProperty ->
-            if (!(metaProperty.modifiers & Modifier.PUBLIC)) {
-                return
-            }
+
+        List<MetaProperty> properties = listClassProperties(aClass)
+
+        if (ignoreInPathProperties) {
+            properties.removeAll(listInPathProperties(aClass))
+        }
+
+        for (MetaProperty metaProperty : properties) {
             String fieldName = metaProperty.name
             Class fieldType = metaProperty.type
             Field field = null
+
             if (metaProperty instanceof MetaBeanProperty) {
-                field = metaProperty.getField()?.getCachedField()
+                field = metaProperty.field?.field
             }
-            // skip grails/groovy fields
-            switch (fieldName) {
-                case ~/.*(grails_|\$).*/:
-                case "metaClass":
-                case "properties":
-                case "class":
-                case "clazz":
-                case "constraints":
-                case "constraintsMap":
-                case "mapping":
-                case "log":
-                case "logger":
-                case "instanceControllersDomainBindingApi":
-                case "instanceConvertersApi":
-                case "errors":
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "version" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "transients" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "all" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "attached" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "belongsTo" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "constrainedProperties" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "dirty" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "dirtyPropertyNames" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "gormDynamicFinders" }:
-                case { DomainClass.isAssignableFrom(aClass) && fieldName == "gormPersistentEntity" }:
-                    return
-            }
+
             Schema schema = getSchemaFromOpenAPI(fieldType)
             if (!schema) {
                 schema = buildSchema(fieldType, field?.genericType)
-                // TODO get annotations from field or trait getter method
-                // @ApiDoc prefer over @ApiDocComment
-                def apiDocAnn = field?.getAnnotation(ApiDoc)
-                def apiDocCommentAnn = field?.getAnnotation(ApiDocComment)
-                def comments = apiDocAnn ? apiDocAnn.value() : apiDocCommentAnn?.value()
-                comments = comments ?: ""
-                if (schema.description) {
-                    schema.description = comments + " \n" + schema.description
-                } else {
-                    schema.description = comments
+
+                ApiDoc annotation = field?.getAnnotation(ApiDoc)
+                if (annotation) {
+                    def comments = annotation.value()
+
+                    if (comments) {
+                        if (schema.description) {
+                            schema.description = comments + " \n" + schema.description
+                        } else {
+                            schema.description = comments
+                        }
+                    } else {
+                        schema.description = annotation.description() ?: ""
+                    }
+
+                    if (annotation.isFile()) {
+                        schema.format = "binary"
+                    }
+
+                    BigDecimal maximum = annotation.maximum() >= 0 ? annotation.maximum() : null
+                    BigDecimal minimum = annotation.minimum() >= 0 ? annotation.minimum() : null
+
+                    if (schema.type == 'string') {
+                        schema.maxLength = maximum
+                        schema.minLength = minimum
+                    } else {
+                        schema.maximum = maximum
+                        schema.minimum = minimum
+                    }
+
+                    if (annotation.required()) {
+                        if (parentSchema) {
+                            List<String> requiredList = parentSchema.required ?: []
+                            parentSchema.required(requiredList + fieldName)
+                        }
+
+                        schema.required = [fieldName]
+                    }
+
+                    ApiDocGenericValue defaultValue = processClosure(annotation.defaultValue(), new ApiDocGenericValueBuilder(reader: this))
+
+                    if (defaultValue.value) {
+                        schema.default = defaultValue.value
+                        schema.example = defaultValue.value
+                    }
+
+                    ApiDocGenericValue exampleValue = processClosure(annotation.example(), new ApiDocGenericValueBuilder(reader: this))
+
+                    if (exampleValue.value) {
+                        schema.example = exampleValue.value
+                    }
                 }
             }
+
             propertiesMap[fieldName] = schema
         }
+
         return propertiesMap
     }
 
-    /**
-     * Build Schema from command class or domain class
-     * @param aClass command class, domain class
-     * @param genericType the genericType of the aClass, such as a Collection<Type> class
-     * @return OAS Schema object
-     */
-    Schema buildSchema(Class aClass, Type genericType = null) {
+    private Schema buildSchema(Class aClass, Type genericType = null, Boolean ignoreInPathProperties = false) {
         TypeAndFormat typeAndFormat = buildType(aClass)
-        // check exists schema, avoid infinite loop
+
         Schema schema = getSchemaFromOpenAPI(aClass)
         if (schema) {
             return schema
@@ -344,6 +490,7 @@ class Reader implements OpenApiReader {
         if (typeAndFormat.type in ["object", "enum"]) {
             openAPI.schema(name, schema)
         }
+
         switch (typeAndFormat.type) {
             case "object":
                 // skip java.xxx/org.grails.xxx/org.springframework.xxx package class
@@ -354,9 +501,12 @@ class Reader implements OpenApiReader {
                 ) {
                     return schema
                 }
-                schema.properties = buildClassProperties(aClass)
-                //Always get reference to object
-                schema = getSchemaFromOpenAPI(aClass)
+                schema.properties = buildClassProperties(aClass, schema, ignoreInPathProperties)
+
+                if (!ignoreInPathProperties) {
+                    schema = getSchemaFromOpenAPI(aClass)
+                }
+
                 break
             case "array":
                 // try to get array element type
@@ -373,7 +523,7 @@ class Reader implements OpenApiReader {
                 }
                 break
             case "enum":
-                schema.type = "integer"
+                schema.type = "string"
                 schema.setEnum(buildEnumItems(aClass))
                 buildEnumDescription(aClass, schema)
                 break
@@ -381,11 +531,7 @@ class Reader implements OpenApiReader {
         return schema
     }
 
-    /**
-     * Build OASv3 type and format from class.
-     */
-    @CompileStatic
-    static TypeAndFormat buildType(Class aClass) {
+    private static TypeAndFormat buildType(Class aClass) {
         TypeAndFormat typeAndFormat = new TypeAndFormat()
         switch (aClass) {
             case String:
@@ -441,42 +587,32 @@ class Reader implements OpenApiReader {
         return typeAndFormat
     }
 
-    @CompileStatic
-    static boolean isCommandClass(Class<?> aClass) {
-        Validateable.isAssignableFrom aClass
-    }
-
-    @CompileStatic
-    static String buildSchemaDescription(Class aClass) {
+    private static String buildSchemaDescription(Class aClass) {
         ApiDoc apiDocAnnotation = aClass.getAnnotation(ApiDoc) as ApiDoc
-        apiDocAnnotation?.value() ?: ""
+
+        def description = apiDocAnnotation?.description()
+        if (description) {
+            return description
+        }
+
+        return apiDocAnnotation?.value() ?: ""
     }
 
-    /**
-     * Get a clone schema from openApi
-     * @param aClass class to find in openApi
-     * @param clone true means clone the schema object if it is found in openApi
-     * @return the found schema object or null
-     */
-    @CompileStatic
-    Schema getSchemaFromOpenAPI(Class aClass, boolean clone = true) {
-        def name = schemaNameFromClass(aClass)
-        def schema = openAPI.components?.getSchemas()?.get(name)
+    private Schema getSchemaFromOpenAPI(Class aClass, boolean clone = true) {
+        String name = schemaNameFromClass(aClass)
+        Schema schema = openAPI.components?.getSchemas()?.get(name)
+
         if (schema && clone) {
             schema = cloneSchema(schema)
             schema.$ref = getRef(schema)
-            // remove properties to prevent cycle referencing
             schema.properties = [:]
         }
-        schema
+
+        return schema
     }
 
-    /**
-     * Use enum id as property value
-     */
-    static List buildEnumItems(Class enumClass) {
+    private static List buildEnumItems(Class enumClass) {
         enumClass.values()?.collect {
-            // if has id property then use it, otherwise use enum name
             if (it.hasProperty("id")) {
                 it.id
             } else {
@@ -485,7 +621,7 @@ class Reader implements OpenApiReader {
         }
     }
 
-    static void buildEnumDescription(Class aClass, Schema schema) {
+    private static void buildEnumDescription(Class aClass, Schema schema) {
         StringBuilder builder = new StringBuilder(schema.description)
         if (schema?.description?.trim()) {
             char endChar = schema.description.charAt(schema.description.length() - 1)
@@ -493,6 +629,7 @@ class Reader implements OpenApiReader {
                 builder.append(". ")
             }
         }
+
         builder.append("Enum of: ")
         aClass.values()?.eachWithIndex { enumValue, idx ->
             String idPart = ""
@@ -505,11 +642,11 @@ class Reader implements OpenApiReader {
             }
             builder.append("${enumValue.name()}${idPart}")
         }
+
         schema.description = builder.toString()
     }
 
-    @CompileStatic
-    static Schema cloneSchema(Schema schema) {
+    private static Schema cloneSchema(Schema schema) {
         Schema clone = new Schema()
         schema.metaClass.properties.each { prop ->
             // only assign writable property
@@ -520,39 +657,101 @@ class Reader implements OpenApiReader {
                 clone[prop.name] = schema[prop.name]
             }
         }
-        clone
+
+        return clone
     }
 
-    @CompileStatic
-    static String schemaNameFromClass(Class aClass) {
-        aClass.canonicalName
-    }
-
-    static Schema getSchemaBy$Ref(OpenAPI openAPI, String ref) {
-        Matcher m = (ref =~ $/#/components/schemas/(.+)/$)
-        if (!m) {
-            return null
-        }
-        def schemaName = m.group(1)
-        openAPI.components.schemas.find {
-            it.key == schemaName
-        }?.value
-    }
-
-    /**
-     * According to the https://swagger.io/docs/specification/data-models/data-types/
-     */
-    @CompileStatic
-    static class TypeAndFormat {
-        String type = "object"
-        String format = null
+    private static String schemaNameFromClass(Class aClass) {
+        return aClass.canonicalName
     }
 
     private UrlMapping getUrlMappingOfAction(UrlMappingsHolder urlMappingsHolder, controllerArtifact, String actionName) {
-        def urlMappingOfAction = urlMappingsHolder.urlMappings.find {
-            it.controllerName == controllerArtifact.logicalPropertyName && it.actionName == actionName && controllerArtifact.namespace == it.namespace
+        UrlMapping urlMappingOfAction = urlMappingsHolder.urlMappings.find {
+            if (it.actionName instanceof Map) {
+                it.controllerName == controllerArtifact.logicalPropertyName && it.actionName.any { it.value == actionName }
+            } else {
+                it.controllerName == controllerArtifact.logicalPropertyName && it.actionName == actionName
+            }
         }
+
+        urlMappingOfAction.namespace = controllerArtifact.namespace
+
         return urlMappingOfAction
+    }
+
+    private PathItem.HttpMethod buildHttpMethod(UrlMapping urlMappingOfAction, String actionName) {
+        String httpMethodName
+
+        if (!urlMappingOfAction) return null
+
+        if (urlMappingOfAction.actionName instanceof Map) {
+            httpMethodName = urlMappingOfAction.actionName.find { it.value == actionName }.key
+        } else {
+            httpMethodName = urlMappingOfAction.httpMethod.toUpperCase()
+        }
+
+        if (httpMethodName == "*" || !PathItem.HttpMethod.values()
+                .collect { it.name() }.contains(httpMethodName)) {
+            httpMethodName = "GET"
+        }
+
+        return PathItem.HttpMethod.valueOf(httpMethodName)
+    }
+
+    private static List<MetaProperty> listInPathProperties(Class aClass) {
+        List<MetaProperty> inPathProperties = listClassProperties(aClass).findAll( {
+            ApiDoc annotation = it.field?.field.getAnnotation(ApiDoc)
+
+            return annotation && annotation.inPath()
+        })
+
+        return inPathProperties
+    }
+
+    private static List<MetaProperty> listClassProperties(Class aClass) {
+        List<MetaProperty> properties = []
+
+        for (MetaProperty metaProperty : aClass.metaClass.properties) {
+            if (!(metaProperty.modifiers & Modifier.PUBLIC)) {
+                continue
+            }
+
+            switch (metaProperty.name) {
+                case ~/.*(grails_|\$).*/:
+                case "metaClass":
+                case "properties":
+                case "class":
+                case "clazz":
+                case "constraints":
+                case "constraintsMap":
+                case "mapping":
+                case "log":
+                case "logger":
+                case "instanceControllersDomainBindingApi":
+                case "instanceConvertersApi":
+                case "errors":
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "version" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "transients" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "all" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "attached" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "belongsTo" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "constrainedProperties" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "dirty" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "dirtyPropertyNames" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "gormDynamicFinders" }:
+                    // case { DomainClass.isAssignableFrom(aClass) && fieldName == "gormPersistentEntity" }:
+                    continue
+            }
+
+            properties.add(metaProperty)
+        }
+
+        return properties
+    }
+
+    private static class TypeAndFormat {
+        String type = "object"
+        String format = null
     }
 
 }

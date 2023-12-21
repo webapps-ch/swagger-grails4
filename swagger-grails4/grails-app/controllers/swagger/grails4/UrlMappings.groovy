@@ -8,7 +8,7 @@ package swagger.grails4
 class UrlMappings {
 
     static mappings = {
-        "/api/doc/$ns?"(controller: "openApi", action: "document")
-        "/api/$ns?"(controller: "openApi", action: "index")
+        "/api"(controller: "openApi", action: "index")
+        "/api/doc"(controller: "openApi", action: "document")
     }
 }
